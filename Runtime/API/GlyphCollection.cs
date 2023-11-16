@@ -85,6 +85,8 @@ namespace LMirman.RewiredGlyphs
 			[FormerlySerializedAs("controllerType")]
 			public HardwareDefinition hardwareDefinition;
 			public GlyphMap glyphMap;
+
+			public InputGlyphs.InputGlyphVariant variant;
 		}
 		
 		[Serializable]
@@ -97,6 +99,8 @@ namespace LMirman.RewiredGlyphs
 
 			private Guid? guidValue;
 			public Guid GuidValue => guidValue ??= new Guid(guid);
+			
+			public InputGlyphs.InputGlyphVariant variant;
 		}
 
 		/// <summary>
@@ -119,6 +123,7 @@ namespace LMirman.RewiredGlyphs
 			[FormerlySerializedAs("controllerType")]
 			public SymbolPreference symbolPreference;
 			public GlyphMap glyphMap;
+			public InputGlyphs.InputGlyphVariant variant;
 		}
 	}
 }

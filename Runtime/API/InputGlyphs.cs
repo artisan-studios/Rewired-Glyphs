@@ -31,15 +31,15 @@ namespace LMirman.RewiredGlyphs
 		/// <summary>
 		/// Glyph mapping based on hardware specific glyphs and hardware specific input ids, found via hardware Guid.
 		/// </summary>
-		private static readonly Dictionary<Guid, Dictionary<int, Glyph>> GuidGlyphMaps = new Dictionary<Guid, Dictionary<int, Glyph>>();
+		private static readonly Dictionary<(Guid, InputGlyphVariant), Dictionary<int, Glyph>> GuidGlyphMaps = new ();
 		/// <summary>
 		/// Glyph mapping based on hardware specific glyphs and hardware specific input ids, found via hardware type definition.
 		/// </summary>
-		private static readonly Dictionary<HardwareDefinition, Dictionary<int, Glyph>> HardwareGlyphMaps = new Dictionary<HardwareDefinition, Dictionary<int, Glyph>>();
+		private static readonly Dictionary<(HardwareDefinition, InputGlyphVariant), Dictionary<int, Glyph>> HardwareGlyphMaps = new();
 		/// <summary>
 		/// Glyph mapping based on template glyphs and template input ids.
 		/// </summary>
-		private static readonly Dictionary<SymbolPreference, Dictionary<int, Glyph>> TemplateGlyphMaps = new Dictionary<SymbolPreference, Dictionary<int, Glyph>>();
+		private static readonly Dictionary<(SymbolPreference, InputGlyphVariant), Dictionary<int, Glyph>> TemplateGlyphMaps = new();
 		/// <summary>
 		/// Lookup table that matches hardware ids to what kind of glyphs should be shown.
 		/// </summary>
@@ -138,21 +138,21 @@ namespace LMirman.RewiredGlyphs
 			GuidGlyphMaps.Clear();
 			foreach (GlyphCollection.GuidEntry guidEntry in collection.GuidMaps)
 			{
-				GuidGlyphMaps[guidEntry.GuidValue] = guidEntry.glyphMap.CreateDictionary();
+				GuidGlyphMaps[(guidEntry.GuidValue, guidEntry.variant)] = guidEntry.glyphMap.CreateDictionary();
 			}
 
 			// Create hardware glyph lookup
 			HardwareGlyphMaps.Clear();
 			foreach (GlyphCollection.HardwareEntry entry in collection.HardwareMaps)
 			{
-				HardwareGlyphMaps[entry.hardwareDefinition] = entry.glyphMap.CreateDictionary();
+				HardwareGlyphMaps[(entry.hardwareDefinition, entry.variant)] = entry.glyphMap.CreateDictionary();
 			}
 
 			// Create template glyph lookup
 			TemplateGlyphMaps.Clear();
 			foreach (GlyphCollection.TemplateEntry entry in collection.TemplateMaps)
 			{
-				TemplateGlyphMaps[entry.symbolPreference] = entry.glyphMap.CreateDictionary();
+				TemplateGlyphMaps[(entry.symbolPreference, entry.variant)] = entry.glyphMap.CreateDictionary();
 			}
 
 			UninitializedGlyph = collection.UninitializedGlyph;
@@ -532,7 +532,7 @@ namespace LMirman.RewiredGlyphs
 		[CanBeNull]
 		public static Glyph GetNativeGlyphFromGuidMap(Guid hardwareGuid, int elementID)
 		{
-			bool hasGuidGlyphMap = GuidGlyphMaps.TryGetValue(hardwareGuid, out Dictionary<int, Glyph> value);
+			bool hasGuidGlyphMap = GuidGlyphMaps.TryGetValue((hardwareGuid, RequiredVariant), out Dictionary<int, Glyph> value);
 			return hasGuidGlyphMap && value.TryGetValue(elementID, out Glyph glyph) ? glyph : null;
 		}
 
@@ -553,7 +553,7 @@ namespace LMirman.RewiredGlyphs
 		[CanBeNull]
 		public static Glyph GetNativeGlyphFromHardwareMap(HardwareDefinition controller, int elementID)
 		{
-			bool hasHardwareGlyphMap = HardwareGlyphMaps.TryGetValue(controller, out Dictionary<int, Glyph> value);
+			bool hasHardwareGlyphMap = HardwareGlyphMaps.TryGetValue((controller, RequiredVariant), out Dictionary<int, Glyph> value);
 			return hasHardwareGlyphMap && value.TryGetValue(elementID, out Glyph glyph) ? glyph : null;
 		}
 
@@ -571,7 +571,7 @@ namespace LMirman.RewiredGlyphs
 		[CanBeNull]
 		public static Glyph GetNativeGlyphFromTemplateMap(SymbolPreference symbolPreference, int templateElementID)
 		{
-			bool hasTemplateGlyphMap = TemplateGlyphMaps.TryGetValue(symbolPreference, out Dictionary<int, Glyph> templateGlyphMap);
+			bool hasTemplateGlyphMap = TemplateGlyphMaps.TryGetValue((symbolPreference, RequiredVariant), out Dictionary<int, Glyph> templateGlyphMap);
 			return hasTemplateGlyphMap && templateGlyphMap.TryGetValue(templateElementID, out Glyph glyph) ? glyph : null;
 		}
 		#endregion
@@ -611,12 +611,12 @@ namespace LMirman.RewiredGlyphs
 		private static bool TryGetTemplateGlyphMap(SymbolPreference symbolPreference, out Dictionary<int, Glyph> templateGlyphMap)
 		{
 			// If we have a specific symbol preference, try to get the glyph map for that symbol type
-			if (symbolPreference != SymbolPreference.Auto && TemplateGlyphMaps.TryGetValue(symbolPreference, out templateGlyphMap))
+			if (symbolPreference != SymbolPreference.Auto && TemplateGlyphMaps.TryGetValue((symbolPreference, RequiredVariant), out templateGlyphMap))
 			{
 				return true;
 			}
 			// If we are in the auto mode or finding a specific map failed, fallback to the auto glyph map
-			else if (TemplateGlyphMaps.TryGetValue(SymbolPreference.Auto, out templateGlyphMap))
+			else if (TemplateGlyphMaps.TryGetValue((SymbolPreference.Auto, RequiredVariant), out templateGlyphMap))
 			{
 				return true;
 			}
@@ -662,6 +662,33 @@ namespace LMirman.RewiredGlyphs
 			}
 
 			return null;
+		}
+		#endregion
+
+		#region Artisan Glyph Variant Changes
+		/*
+		 *	Artisan change - We have variants of our glyph maps based on look-and-feel that we need to specify when retrieving a glyph.
+		 */
+		public enum InputGlyphVariant
+		{
+			DarkBigOff,
+			DarkBigOn,
+			DarkSmallOff,
+			DarkSmallOn,
+			LightBigOn,
+			LightSmallOn,
+			BlueBig
+		}
+
+		/// <summary>
+		/// The variant to display for glyphs.
+		/// </summary>
+		public static InputGlyphVariant RequiredVariant { get; private set; } = InputGlyphVariant.LightBigOn;
+		
+		public static Glyph GetCurrentGlyphWithVariant(int actionID, Pole poleValue, out AxisRange axisRange, int playerIndex, InputGlyphVariant inputGlyphVariant)
+		{
+			RequiredVariant = inputGlyphVariant;
+			return GetCurrentGlyph(actionID, poleValue, out axisRange, playerIndex);
 		}
 		#endregion
 	}
